@@ -49,6 +49,10 @@ app.get('/api/stats/:tenant', (req, res) => {
     status: 'ok'
   });
 });
+// Root route แสดงสถานะสั้น ๆ
+app.get('/', (_req, res) => {
+  res.json({ message: 'BN9 Backend v2 is running ✅' });
+});
 
 // ✅ เริ่มต้นเซิร์ฟเวอร์
 app.listen(process.env.PORT || 3001, () => {
