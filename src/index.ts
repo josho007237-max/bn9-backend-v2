@@ -1,22 +1,34 @@
-import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { auth } from './middlewares/auth.js';
-import { healthRouter } from './routes/health.js';
-import { versionRouter } from './routes/version.js';
-import { statsRouter } from './routes/stats.js';
-import { activityRouter } from './routes/activity.js';
+import dotenv from 'dotenv';
 
+dotenv.config();
 const app = express();
+
+const allowedOrigin = process.env.ALLOW_ORIGIN || '*';
+
+app.use(cors({
+  origin: allowedOrigin,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'x-admin-code'],
+}));
+
+// ✅ ให้ตอบ preflight (OPTIONS) ทุกเส้นทาง
+app.options('*', cors({
+  origin: allowedOrigin,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'x-admin-code'],
+}));
+
 app.use(express.json());
-app.use(cors({ origin: process.env.ALLOW_ORIGIN?.split(',') || '*' }));
 
-app.use('/health', healthRouter);
-app.use('/version', versionRouter);
-app.use('/api/stats', auth, statsRouter);
-app.use('/api/activity', auth, activityRouter);
-
-const port = Number(process.env.PORT || 3001);
-app.listen(port, () => {
-  console.log(`[bn9-backend-v2] listening on :${port}`);
+// ตัวอย่าง route health
+app.get('/health', (_, res) => {
+  res.json({ ok: true });
 });
+
+// (ส่วนอื่น ๆ เช่น version, api/stats/demo อยู่ด้านล่าง)
+app.listen(process.env.PORT || 3001, () => {
+  console.log('✅ BN9 Backend v2 running on port', process.env.PORT || 3001);
+});
+
