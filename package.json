@@ -4,16 +4,15 @@
   "type": "module",
   "private": true,
   "scripts": {
-  "dev": "vite",
-  "build": "tsc && vite build",
-  "preview": "vite preview --port 5173",
-  "start": "npx serve -s dist -l $PORT"
-},
-"dependencies": {
-  "react": "^18.3.1",
-  "react-dom": "^18.3.1",
-  "serve": "^14.2.3"
-}
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "echo \"(optional)\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -21,4 +20,6 @@
     "tsx": "^4.19.1",
     "typescript": "^5.6.3"
   }
+}
+
 
