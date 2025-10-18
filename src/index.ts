@@ -25,6 +25,30 @@ app.use(express.json());
 app.get('/health', (_, res) => {
   res.json({ ok: true });
 });
+// ✅ Stats endpoint ให้ตรงกับ frontend
+app.get('/api/stats/:tenant', (req, res) => {
+  const tenant = req.params.tenant || 'demo';
+  const admin = req.header('x-admin-code');
+
+  if (process.env.SUPER_ADMIN_CODE && admin !== process.env.SUPER_ADMIN_CODE) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+
+  const now = new Date();
+  const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  return res.json({
+    tenant,
+    window: { from: from.toISOString(), to: now.toISOString() },
+    metrics: {
+      messages: 0,
+      uniqueUsers: 0,
+      urgent: 0,
+      duplicateWithin15m: 0
+    },
+    status: 'ok'
+  });
+});
 
 // ✅ เริ่มต้นเซิร์ฟเวอร์
 app.listen(process.env.PORT || 3001, () => {
