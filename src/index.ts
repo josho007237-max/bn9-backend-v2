@@ -1,62 +1,53 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
+// src/index.ts
+import path from "path";
+import dotenv from "dotenv";
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
-dotenv.config();
+import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
+
+// ★ routes
+import statsRoute from "./routes/stats";
+import casesRoute from "./routes/cases";
+
+// -------- App setup --------
 const app = express();
 
-// ✅ ตั้งค่า CORS
-const allowedOrigin = process.env.ALLOW_ORIGIN || '*';
+// CORS — รองรับ ALLOW_ORIGIN=*, หรือคอมมาแยกหลายโดเมน
+const allowOrigin = process.env.ALLOW_ORIGIN ?? "*";
+const origins =
+  allowOrigin === "*"
+    ? undefined
+    : allowOrigin.split(",").map(s => s.trim()).filter(Boolean);
 
-const corsOptions: cors.CorsOptions = {
-  origin: allowedOrigin,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'x-admin-code'],
-  optionsSuccessStatus: 204,
-};
+app.use(
+  cors({
+    origin: origins ?? "*",
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "x-admin-code"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  })
+);
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // สำคัญ: ให้ตอบ preflight ทุกเส้นทาง
+app.use(express.json({ limit: "1mb" }));
 
-// ✅ Body parser
-app.use(express.json());
+// -------- Health --------
+app.get("/health", (_req: Request, res: Response) => res.json({ status: "ok" }));
+app.get("/api/health", (_req: Request, res: Response) => res.json({ status: "ok" }));
 
-// ✅ Route ทดสอบว่าเซิร์ฟเวอร์ทำงาน
-app.get('/health', (_, res) => {
-  res.json({ ok: true });
-});
-// ✅ Stats endpoint ให้ตรงกับ frontend
-app.get('/api/stats/:tenant', (req, res) => {
-  const tenant = req.params.tenant || 'demo';
-  const admin = req.header('x-admin-code');
+// -------- API routes --------
+app.use("/api", statsRoute);
+app.use("/api", casesRoute);
 
-  if (process.env.SUPER_ADMIN_CODE && admin !== process.env.SUPER_ADMIN_CODE) {
-    return res.status(401).json({ error: 'unauthorized' });
-  }
-
-  const now = new Date();
-  const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-  return res.json({
-    tenant,
-    window: { from: from.toISOString(), to: now.toISOString() },
-    metrics: {
-      messages: 0,
-      uniqueUsers: 0,
-      urgent: 0,
-      duplicateWithin15m: 0
-    },
-    status: 'ok'
-  });
-});
-// Root route แสดงสถานะสั้น ๆ
-app.get('/', (_req, res) => {
-  res.json({ message: 'BN9 Backend v2 is running ✅' });
+// -------- Error handler (fallback) --------
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: err?.message ?? "server_error" });
 });
 
-// ✅ เริ่มต้นเซิร์ฟเวอร์
-app.listen(process.env.PORT || 3001, () => {
-  console.log('✅ BN9 Backend v2 running on port', process.env.PORT || 3001);
+// -------- Start server --------
+const PORT = Number(process.env.PORT ?? 3001);
+app.listen(PORT, () => {
+  console.log(`🚀 BN9 Backend v2 running on port ${PORT}`);
 });
-
-
