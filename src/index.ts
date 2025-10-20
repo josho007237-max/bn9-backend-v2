@@ -1,53 +1,63 @@
-// src/index.ts
-import path from "path";
-import dotenv from "dotenv";
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
-
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
 import cors from "cors";
 
-// ★ routes
-import statsRoute from "./routes/stats";
-import casesRoute from "./routes/cases";
-
-// -------- App setup --------
 const app = express();
 
-// CORS — รองรับ ALLOW_ORIGIN=*, หรือคอมมาแยกหลายโดเมน
+// ----- Middlewares -----
 const allowOrigin = process.env.ALLOW_ORIGIN ?? "*";
-const origins =
-  allowOrigin === "*"
-    ? undefined
-    : allowOrigin.split(",").map(s => s.trim()).filter(Boolean);
-
 app.use(
   cors({
-    origin: origins ?? "*",
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "x-admin-code"],
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
+    origin: allowOrigin === "*" ? true : allowOrigin.split(","),
   })
 );
+app.use(express.json({ limit: "2mb" }));
 
-app.use(express.json({ limit: "1mb" }));
+// ----- Health endpoints (ตอบไวที่สุด วางไว้บนสุด) -----
+app.get("/health", (_req, res) => res.json({ status: "ok" }));
+app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
-// -------- Health --------
-app.get("/health", (_req: Request, res: Response) => res.json({ status: "ok" }));
-app.get("/api/health", (_req: Request, res: Response) => res.json({ status: "ok" }));
+// ----- Admin guard -----
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const adminHeader = (req.headers["x-admin-code"] || "") as string;
+  const expected = process.env.ADMIN_CODE || "";
+  if (!expected || adminHeader !== expected) {
+    return res.status(401).json({ status: "error", message: "unauthorized" });
+  }
+  next();
+}
 
-// -------- API routes --------
-app.use("/api", statsRoute);
-app.use("/api", casesRoute);
+// ----- Example API: /api/stats/:tenant -----
+/**
+ * demo logic: นับสถิติช่วง 24 ชม. ล่าสุดแบบ mock
+ * ในโปรเจกต์จริง ให้ต่อ DB/Sheets แทนได้เลย
+ */
+app.get("/api/stats/:tenant", requireAdmin, (req, res) => {
+  const { tenant } = req.params;
 
-// -------- Error handler (fallback) --------
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  console.error("Unhandled error:", err);
-  res.status(500).json({ error: err?.message ?? "server_error" });
+  // mock data สำหรับเดโม่
+  const now = new Date();
+  const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  const payload = {
+    tenant,
+    window: { from: from.toISOString(), to: now.toISOString() },
+    metrics: {
+      messages: 123,
+      uniqueUsers: 45,
+      urgent: 7,
+      duplicateWithin15m: 4
+    },
+    status: "ok" as const
+  };
+
+  res.json(payload);
 });
 
-// -------- Start server --------
-const PORT = Number(process.env.PORT ?? 3001);
-app.listen(PORT, () => {
-  console.log(`🚀 BN9 Backend v2 running on port ${PORT}`);
+// ----- 404 fallback (ไม่บล็อก health) -----
+app.use((_req, res) => res.status(404).json({ status: "error", message: "not found" }));
+
+// ----- Start server (สำคัญ: ใช้ PORT ของ Railway และ bind 0.0.0.0) -----
+const PORT = Number(process.env.PORT || 3001);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server ready on http://0.0.0.0:${PORT}`);
 });
